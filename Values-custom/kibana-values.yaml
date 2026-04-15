@@ -4,7 +4,7 @@ elasticsearchCertificateSecret: elasticsearch-master-certs
 elasticsearchCertificateAuthoritiesFile: ca.crt
 elasticsearchCredentialSecret: elasticsearch-master-credentials
 
-replicas: 1
+replicas: 2
 
 # Extra environment variables to append to this nodeGroup
 # This will be appended to the current 'env:' key. You can use any of the kubernetes env
@@ -51,11 +51,11 @@ podAnnotations: {}
 
 resources:
   requests:
-    cpu: "1000m"
-    memory: "2Gi"
+    cpu: "250m"
+    memory: "1Gi"
   limits:
-    cpu: "1000m"
-    memory: "2Gi"
+    cpu: "1000m"   # allow cpu burst for dashboard rendering
+    memory: "2Gi"  # keep 2Gi limit to match NODE_OPTIONS max-old-space-size=1800
 
 protocol: http
 
@@ -117,7 +117,10 @@ extraInitContainers: []
 #   command: ['echo', 'hey']
 
 updateStrategy:
-  type: "Recreate"
+  type: "RollingUpdate"  # safe with replicas > 1, avoids downtime during upgrades
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 0
 
 service:
   type: ClusterIP
@@ -160,8 +163,30 @@ readinessProbe:
 
 imagePullSecrets: []
 nodeSelector: {}
-tolerations: []
-affinity: {}
+
+tolerations:
+  - key: "workload-class"
+    operator: "Equal"
+    value: "standard"
+    effect: "NoSchedule"
+
+affinity:
+  nodeAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 80
+        preference:
+          matchExpressions:
+            - key: node-pool
+              operator: In
+              values:
+                - spot-arm64    # cheapest, try first
+      - weight: 50
+        preference:
+          matchExpressions:
+            - key: node-pool
+              operator: In
+              values:
+                - spot-amd64    # fallback spot
 
 nameOverride: ""
 fullnameOverride: ""
