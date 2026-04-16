@@ -209,13 +209,13 @@ readinessProbe:
     path: /api/v2/health
     port: http
 
-resources: {}
-#   limits:
-#     cpu: 100m
-#     memory: 128Mi
-#   requests:
-#     cpu: 100m
-#     memory: 128Mi
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m      # karpenter uses this for node sizing
+    memory: 128Mi  # daemonset runs on every node, keep request lean
 
 ## only available if kind is Deployment
 ingress:
@@ -298,7 +298,8 @@ podDisruptionBudget:
 
 nodeSelector: {}
 
-tolerations: []
+tolerations:
+  - operator: "Exists"  # daemonset must tolerate every taint on every karpenter node pool
 
 affinity: {}
 
@@ -320,7 +321,14 @@ terminationGracePeriodSeconds:
 
 priorityClassName: ""
 
-env: []
+env:
+  - name: ES_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        # This secret is auto-created by the elasticsearch helm chart
+        name: elasticsearch-master-credentials
+        key: password
+        
 #  - name: FOO
 #    value: "bar"
 
@@ -379,7 +387,38 @@ networkPolicy:
 #     from: []
 
 # See Lua script configuration example in README.md
-luaScripts: {}
+luaScripts:
+  setIndex.lua: |
+    function set_index(tag, timestamp, record)
+        -- Skip all logs coming from the efk namespace (self-logs)
+        if record["kubernetes"] ~= nil then
+            if record["kubernetes"]["namespace_name"] == "efk" then
+                return -1, timestamp, record  -- -1 drops the record entirely
+            end
+        end
+
+        -- Build the index name: logs-{namespace}-{container}
+        local index = "logs-"
+        if record["kubernetes"] ~= nil then
+            if record["kubernetes"]["namespace_name"] ~= nil then
+                if record["kubernetes"]["container_name"] ~= nil then
+                    record["es_index"] = index
+                        .. record["kubernetes"]["namespace_name"]
+                        .. "-"
+                        .. record["kubernetes"]["container_name"]
+                    return 1, timestamp, record
+                end
+                -- fallback: only namespace available
+                record["es_index"] = index
+                    .. record["kubernetes"]["namespace_name"]
+                return 1, timestamp, record
+            end
+        end
+
+        -- fallback: no kubernetes metadata at all
+        record["es_index"] = index .. "unknown"
+        return 1, timestamp, record
+    end
 
 ## https://docs.fluentbit.io/manual/administration/configuring-fluent-bit/classic-mode/configuration-file
 config:
