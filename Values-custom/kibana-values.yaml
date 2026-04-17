@@ -172,21 +172,13 @@ tolerations:
 
 affinity:
   nodeAffinity:
-    preferredDuringSchedulingIgnoredDuringExecution:
-      - weight: 80
-        preference:
-          matchExpressions:
-            - key: node-pool
-              operator: In
-              values:
-                - spot-arm64    # cheapest, try first
-      - weight: 50
-        preference:
-          matchExpressions:
-            - key: node-pool
-              operator: In
-              values:
-                - spot-amd64    # fallback spot
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+          - key: node-pool
+            operator: In
+            values:
+              - spot-arm64
 
 nameOverride: ""
 fullnameOverride: ""
