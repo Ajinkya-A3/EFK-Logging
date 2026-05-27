@@ -2,7 +2,7 @@
 
 # EFK Stack on EKS with Karpenter
 
-> **Elasticsearch · Fluent Bit · Kibana** — centralized logging for EKS clusters provisioned via [Ajinkya-A3/EKS-Karpenter-TF](https://github.com/Ajinkya-A3/EKS-Karpenter-TF) (Terraform + Karpenter).
+> **Elasticsearch · Fluent Bit · Kibana** — centralized logging for EKS clusters provisioned via [Ajinkya-A3/EKS-Karpenter-Terraform](https://github.com/Ajinkya-A3/EKS-Karpenter-Terraform) (Terraform + Karpenter).
 
 ---
 
